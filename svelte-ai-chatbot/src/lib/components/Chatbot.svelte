@@ -54,14 +54,20 @@
 			...newAgent
 		};
 		agents = [...agents, agent];
+		saveChatState();
 		selectedAgent = agent;
-		clearChat(); // Clear chat when switching to new agent
+		loadChatState(agent.id);
+		sendHiddenMessage(`System Instruction: ${agent.systemPrompt}`);
 	}
 
 	function handleSelectAgent(agent) {
 		if (selectedAgent.id !== agent.id) {
+			saveChatState();
 			selectedAgent = agent;
-			clearChat();
+			loadChatState(agent.id);
+			if (messages.length === 0) {
+				sendHiddenMessage(`System Instruction: ${agent.systemPrompt}`);
+			}
 		}
 	}
 
@@ -74,7 +80,40 @@
 	let silenceTimer = null;
 	let stream = null;
 
+	let agentSessions = {};
+
+	// Load state from memory
+	function loadChatState(agentId) {
+		const targetId = agentId || selectedAgent.id;
+		const session = agentSessions[targetId];
+
+		if (session) {
+			messages = session.messages;
+			conversationHistory = session.history;
+		} else {
+			messages = [];
+			conversationHistory = [];
+		}
+	}
+
+	// Save state to memory
+	function saveChatState() {
+		if (selectedAgent) {
+			agentSessions[selectedAgent.id] = {
+				messages: [...messages],
+				history: [...conversationHistory]
+			};
+		}
+	}
+
+	// Save state whenever it changes
+	$effect(() => {
+		saveChatState();
+	});
+
 	onMount(() => {
+		loadChatState(selectedAgent.id);
+
 		// Initialize Web Speech API
 		if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 			const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -118,24 +157,61 @@
 			synthesis = window.speechSynthesis;
 		}
 
-		// Add welcome message
-		const welcomeText = "Hello! I'm your AI assistant. How can I help you today?";
-		messages = [
-			{
-				id: Date.now(),
-				role: 'assistant',
-				content: welcomeText,
-				timestamp: new Date()
-			}
-		];
-		
-		// Speak welcome message after a short delay to allow interaction
-		setTimeout(() => {
-			if (autoSpeak) {
-				speakText(welcomeText);
-			}
-		}, 1000);
+		// Add welcome message if chat is empty
+		if (messages.length === 0) {
+			const welcomeText = "Hello! I'm your AI assistant. How can I help you today?";
+			messages = [
+				{
+					id: Date.now(),
+					role: 'assistant',
+					content: welcomeText,
+					timestamp: new Date()
+				}
+			];
+			
+			// Initial hidden prompt (run in background)
+			sendHiddenMessage("Initialize session. Be ready to assist.");
+
+			// Speak welcome message after a short delay to allow interaction
+			setTimeout(() => {
+				if (autoSpeak) {
+					speakText(welcomeText);
+				}
+			}, 1000);
+		}
 	});
+
+	async function sendHiddenMessage(content) {
+		if (!content) return;
+
+		// Add to history but NOT to messages (UI)
+		conversationHistory = [...conversationHistory, { role: 'user', content: content }];
+
+		try {
+			const response = await fetch('/api/chat', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					message: content,
+					conversationHistory: conversationHistory.slice(-10), // Keep last 10 messages for context
+					systemPrompt: selectedAgent.systemPrompt
+				})
+			});
+
+			const data = await response.json();
+
+			if (response.ok) {
+				// Add response to history but NOT to messages (UI)
+				conversationHistory = [...conversationHistory, { role: 'assistant', content: data.response }];
+			} else {
+				console.error('Failed to send hidden message:', data.error);
+			}
+		} catch (error) {
+			console.error('Error sending hidden message:', error);
+		}
+	}
 
 	async function sendMessage() {
 		if (!inputMessage.trim() || isLoading) return;
@@ -452,7 +528,6 @@
 				timestamp: new Date()
 			}
 		];
-		conversationHistory = [];
 		conversationHistory = [];
 	}
 
