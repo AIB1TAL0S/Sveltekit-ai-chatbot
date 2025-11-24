@@ -1,0 +1,496 @@
+<script>
+	import { onMount } from 'svelte';
+	import ChatHeader from './chat/ChatHeader.svelte';
+	import MessageList from './chat/MessageList.svelte';
+	import ChatInput from './chat/ChatInput.svelte';
+	import Sidebar from './Sidebar.svelte';
+
+	let messages = $state([]);
+	let inputMessage = $state('');
+	let isLoading = $state(false);
+	let isListening = $state(false);
+	let isSpeaking = $state(false);
+	let autoSpeak = $state(true); // Auto-speak enabled by default
+	let conversationMode = $state(false); // Conversation mode disabled by default
+	let conversationHistory = $state([]);
+
+	let isRecording = $state(false);
+	let recordingTime = $state(0);
+	let isSidebarOpen = $state(false);
+
+	// Agents State
+	let agents = $state([
+		{
+			id: 'default',
+			name: 'General Assistant',
+			systemPrompt: 'You are a helpful, witty, and knowledgeable AI assistant. You provide concise and conversational responses.'
+		},
+		{
+			id: 'coder',
+			name: 'Coding Expert',
+			systemPrompt: 'You are an expert software engineer. You write clean, efficient, and well-documented code. You explain complex concepts simply and help debug issues effectively.'
+		},
+		{
+			id: 'writer',
+			name: 'Creative Writer',
+			systemPrompt: 'You are a creative writing assistant. You help with brainstorming ideas, improving prose, writing stories, and editing content for clarity and impact.'
+		},
+		{
+			id: 'coach',
+			name: 'Productivity Coach',
+			systemPrompt: 'You are a productivity coach. You help users organize their tasks, manage their time effectively, and stay motivated. You offer practical advice for achieving goals.'
+		},
+		{
+			id: 'tutor',
+			name: 'Language Tutor',
+			systemPrompt: 'You are a patient and encouraging language tutor. You help users practice conversation, correct grammar, and explain vocabulary. You adapt to the user\'s proficiency level.'
+		}
+	]);
+	let selectedAgent = $state(agents[0]);
+
+	function handleAddAgent(newAgent) {
+		const agent = {
+			id: Date.now().toString(),
+			...newAgent
+		};
+		agents = [...agents, agent];
+		selectedAgent = agent;
+		clearChat(); // Clear chat when switching to new agent
+	}
+
+	function handleSelectAgent(agent) {
+		if (selectedAgent.id !== agent.id) {
+			selectedAgent = agent;
+			clearChat();
+		}
+	}
+
+	let recognition = null;
+	let synthesis = null;
+	let messageList = null; // Reference to MessageList component
+	let mediaRecorder = null;
+	let audioChunks = [];
+	let recordingInterval = null;
+	let silenceTimer = null;
+	let stream = null;
+
+	onMount(() => {
+		// Initialize Web Speech API
+		if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+			const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+			recognition = new SpeechRecognition();
+			recognition.continuous = false;
+			recognition.interimResults = true; // Enable interim results for better silence detection
+			recognition.lang = 'en-US';
+
+			recognition.onresult = (event) => {
+				const transcript = Array.from(event.results)
+					.map((result) => result[0].transcript)
+					.join('');
+				
+				inputMessage = transcript;
+				
+				// In conversation mode, use silence detection
+				if (conversationMode && transcript.trim()) {
+					// Clear existing timer
+					if (silenceTimer) clearTimeout(silenceTimer);
+					
+					// Set new timer (1.5 seconds silence threshold)
+					silenceTimer = setTimeout(() => {
+						stopListening();
+						sendMessage();
+					}, 1500);
+				}
+			};
+
+			recognition.onerror = (event) => {
+				console.error('Speech recognition error:', event.error);
+				isListening = false;
+			};
+
+			recognition.onend = () => {
+				isListening = false;
+			};
+		}
+
+		// Initialize Web Speech Synthesis API
+		if ('speechSynthesis' in window) {
+			synthesis = window.speechSynthesis;
+		}
+
+		// Add welcome message
+		const welcomeText = "Hello! I'm your AI assistant. How can I help you today?";
+		messages = [
+			{
+				id: Date.now(),
+				role: 'assistant',
+				content: welcomeText,
+				timestamp: new Date()
+			}
+		];
+		
+		// Speak welcome message after a short delay to allow interaction
+		setTimeout(() => {
+			if (autoSpeak) {
+				speakText(welcomeText);
+			}
+		}, 1000);
+	});
+
+	async function sendMessage() {
+		if (!inputMessage.trim() || isLoading) return;
+
+		const userMessage = {
+			id: Date.now(),
+			role: 'user',
+			content: inputMessage.trim(),
+			timestamp: new Date()
+		};
+
+		messages = [...messages, userMessage];
+		conversationHistory = [...conversationHistory, { role: 'user', content: inputMessage.trim() }];
+
+		const messageToSend = inputMessage.trim();
+		inputMessage = '';
+		isLoading = true;
+
+		try {
+			const response = await fetch('/api/chat', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					message: messageToSend,
+					conversationHistory: conversationHistory.slice(-10), // Keep last 10 messages for context
+					systemPrompt: selectedAgent.systemPrompt
+				})
+			});
+
+			const data = await response.json();
+
+			if (response.ok) {
+				const assistantMessage = {
+					id: Date.now() + 1,
+					role: 'assistant',
+					content: data.response,
+					sources: data.sources || [],
+					timestamp: new Date()
+				};
+
+				messages = [...messages, assistantMessage];
+				conversationHistory = [...conversationHistory, { role: 'assistant', content: data.response }];
+
+				// Auto-speak if enabled or in conversation mode
+				if ((autoSpeak || conversationMode) && data.response) {
+					setTimeout(() => {
+						speakText(data.response);
+					}, 300);
+				}
+
+				// Auto-scroll to bottom
+				setTimeout(() => {
+					if (messageList) {
+						messageList.scrollToBottom();
+					}
+				}, 100);
+			} else {
+				throw new Error(data.error || 'Failed to get response');
+			}
+		} catch (error) {
+			console.error('Error sending message:', error);
+			const errorMessage = {
+				id: Date.now() + 1,
+				role: 'assistant',
+				content: `Sorry, I encountered an error: ${error.message || 'Unknown error'}. Please try again.`,
+				error: true,
+				timestamp: new Date()
+			};
+			messages = [...messages, errorMessage];
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function startRecording() {
+		try {
+			// Request microphone access
+			stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+			// Create MediaRecorder
+			const options = {
+				mimeType: 'audio/webm;codecs=opus'
+			};
+
+			// Try different audio formats for better browser compatibility
+			if (MediaRecorder.isTypeSupported('audio/webm')) {
+				options.mimeType = 'audio/webm';
+			} else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+				options.mimeType = 'audio/mp4';
+			} else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+				options.mimeType = 'audio/ogg';
+			}
+
+			mediaRecorder = new MediaRecorder(stream, options);
+			audioChunks = [];
+
+			mediaRecorder.ondataavailable = (event) => {
+				if (event.data.size > 0) {
+					audioChunks.push(event.data);
+				}
+			};
+
+			mediaRecorder.onstop = async () => {
+				const audioBlob = new Blob(audioChunks, { type: options.mimeType });
+				await sendAudioToN8n(audioBlob);
+
+				// Stop all tracks
+				if (stream) {
+					stream.getTracks().forEach((track) => track.stop());
+					stream = null;
+				}
+			};
+
+			mediaRecorder.onerror = (event) => {
+				console.error('MediaRecorder error:', event);
+				stopRecording();
+			};
+
+			mediaRecorder.start();
+			isRecording = true;
+			recordingTime = 0;
+
+			// Start recording timer
+			recordingInterval = setInterval(() => {
+				recordingTime++;
+			}, 1000);
+		} catch (error) {
+			console.error('Error starting recording:', error);
+			alert('Failed to access microphone. Please check your permissions.');
+			isRecording = false;
+		}
+	}
+
+	function stopRecording() {
+		if (!mediaRecorder || !isRecording) return;
+
+		mediaRecorder.stop();
+		isRecording = false;
+		recordingTime = 0;
+
+		if (recordingInterval) {
+			clearInterval(recordingInterval);
+			recordingInterval = null;
+		}
+	}
+
+	async function sendAudioToN8n(audioBlob) {
+		isLoading = true;
+
+		try {
+			const formData = new FormData();
+			formData.append('audio', audioBlob);
+			formData.append('message', inputMessage.trim() || '');
+			formData.append('systemPrompt', selectedAgent.systemPrompt); // Send system prompt with audio
+
+			const response = await fetch('/api/audio', {
+				method: 'POST',
+				body: formData
+			});
+
+			const data = await response.json();
+
+			if (response.ok) {
+				// Use transcript from n8n if available, otherwise use the response
+				const transcript = data.transcript || '';
+				// const userMessageContent = transcript || '🎤 Audio message';
+
+				// Add user message with transcript
+				if (transcript) {
+					const userMessage = {
+						id: Date.now(),
+						role: 'user',
+						content: transcript,
+						audio: true,
+						timestamp: new Date()
+					};
+					messages = [...messages, userMessage];
+					conversationHistory = [...conversationHistory, { role: 'user', content: transcript }];
+				} else {
+					const userMessage = {
+						id: Date.now(),
+						role: 'user',
+						content: '🎤 Audio message',
+						audio: true,
+						timestamp: new Date()
+					};
+					messages = [...messages, userMessage];
+					conversationHistory = [
+						...conversationHistory,
+						{ role: 'user', content: 'Audio message' }
+					];
+				}
+
+				// Add AI response
+				const assistantMessage = {
+					id: Date.now() + 1,
+					role: 'assistant',
+					content: data.response,
+					sources: data.sources || [],
+					timestamp: new Date()
+				};
+
+				messages = [...messages, assistantMessage];
+				conversationHistory = [...conversationHistory, { role: 'assistant', content: data.response }];
+
+				// Auto-speak if enabled or in conversation mode
+				if ((autoSpeak || conversationMode) && data.response) {
+					setTimeout(() => {
+						speakText(data.response);
+					}, 300);
+				}
+
+				// Clear input
+				inputMessage = '';
+
+				// Auto-scroll to bottom
+				setTimeout(() => {
+					if (messageList) {
+						messageList.scrollToBottom();
+					}
+				}, 100);
+			} else {
+				throw new Error(data.error || 'Failed to process audio');
+			}
+		} catch (error) {
+			console.error('Error sending audio to n8n:', error);
+			const errorMessage = {
+				id: Date.now() + 1,
+				role: 'assistant',
+				content: `Sorry, I encountered an error processing the audio: ${error.message}`,
+				error: true,
+				timestamp: new Date()
+			};
+			messages = [...messages, errorMessage];
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	// Browser STT as primary option, fallback to MediaRecorder
+	function startListening() {
+		if (isListening || isRecording) return;
+
+		if (!recognition) {
+			// Fallback to audio recording if Web Speech API is not available
+			startRecording();
+			return;
+		}
+
+		isListening = true;
+		try {
+			recognition.start();
+		} catch (e) {
+			console.error('Failed to start recognition:', e);
+			isListening = false;
+			// Fallback
+			startRecording();
+		}
+	}
+
+	function stopListening() {
+		if (recognition && isListening) {
+			recognition.stop();
+			isListening = false;
+		}
+	}
+
+	function speakText(text) {
+		if (!synthesis || isSpeaking) return;
+
+		// Stop any ongoing speech
+		synthesis.cancel();
+
+		const utterance = new SpeechSynthesisUtterance(text);
+		utterance.lang = 'en-US';
+		utterance.rate = 1.0;
+		utterance.pitch = 1.0;
+		utterance.volume = 1.0;
+
+		utterance.onstart = () => {
+			isSpeaking = true;
+		};
+
+		utterance.onend = () => {
+			isSpeaking = false;
+			if (conversationMode) {
+				startListening();
+			}
+		};
+
+		utterance.onerror = (event) => {
+			console.error('Speech synthesis error:', event);
+			isSpeaking = false;
+		};
+
+		synthesis.speak(utterance);
+	}
+
+	function stopSpeaking() {
+		if (synthesis) {
+			synthesis.cancel();
+			isSpeaking = false;
+		}
+	}
+
+	function clearChat() {
+		messages = [
+			{
+				id: Date.now(),
+				role: 'assistant',
+				content: "Chat cleared. How can I help you?",
+				timestamp: new Date()
+			}
+		];
+		conversationHistory = [];
+		conversationHistory = [];
+	}
+
+
+</script>
+
+<div class="flex h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 overflow-hidden">
+	<!-- Sidebar -->
+	<Sidebar 
+		bind:agents 
+		bind:selectedAgent 
+		bind:isOpen={isSidebarOpen}
+		onAddAgent={handleAddAgent}
+		onSelectAgent={(agent) => {
+			handleSelectAgent(agent);
+			isSidebarOpen = false; // Close sidebar on mobile when agent selected
+		}}
+	/>
+
+	<!-- Main Chat Area -->
+	<div class="flex-1 flex flex-col h-full min-w-0 relative">
+		<ChatHeader bind:autoSpeak bind:conversationMode {clearChat} {selectedAgent} onToggleSidebar={() => isSidebarOpen = !isSidebarOpen} />
+
+		<MessageList bind:this={messageList} {messages} {isLoading} {isSpeaking} {speakText} />
+
+		<ChatInput
+			bind:inputMessage
+			{isLoading}
+			{isRecording}
+			{recordingTime}
+			{isListening}
+			{isSpeaking}
+			{sendMessage}
+			{startRecording}
+			{stopRecording}
+			{startListening}
+			{stopListening}
+			{stopSpeaking}
+		/>
+	</div>
+</div>
