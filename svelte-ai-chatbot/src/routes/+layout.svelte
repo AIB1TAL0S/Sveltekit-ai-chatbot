@@ -7,8 +7,8 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>AI Chatbot - n8n</title>
-	<meta name="description" content="AI Chatbot with RAG, TTS, and STT powered by n8n" />
+	<title>gemini-ai-chatbot</title>
+	<meta name="description" content="AI Chatbot with TTS, and STT powered by gemini" />
 </svelte:head>
 
 <div class="h-screen overflow-hidden">
