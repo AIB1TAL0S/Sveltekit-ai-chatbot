@@ -14,13 +14,34 @@
 		stopSpeaking
 	} = $props();
 
+	function handleWindowKeydown(event) {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			if (isSpeaking) {
+				event.preventDefault();
+				stopSpeaking();
+			} else if (isRecording) {
+				event.preventDefault();
+				stopRecording();
+			} else if (isListening) {
+				event.preventDefault();
+				stopListening();
+			}
+		}
+	}
+
 	function handleKeyPress(event) {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
-			sendMessage();
+			if (isSpeaking) {
+				stopSpeaking();
+			} else if (!isRecording && !isListening) {
+				sendMessage();
+			}
 		}
 	}
 </script>
+
+<svelte:window onkeydown={handleWindowKeydown} />
 
 <div class="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
 	<div class="max-w-4xl mx-auto px-4 py-4">
