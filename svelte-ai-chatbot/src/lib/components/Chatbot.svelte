@@ -175,17 +175,6 @@
 				
 				inputMessage = transcript;
 				
-				// In conversation mode, use silence detection
-				if (conversationMode && transcript.trim()) {
-					// Clear existing timer
-					if (silenceTimer) clearTimeout(silenceTimer);
-					
-					// Set new timer (1.5 seconds silence threshold)
-					silenceTimer = setTimeout(() => {
-						stopListening();
-						sendMessage();
-					}, 1500);
-				}
 			};
 
 			recognition.onerror = (event) => {
@@ -218,7 +207,7 @@
 			// Initial hidden prompt (run in background)
 			sendHiddenMessage("Initialize session. Be ready to assist.");
 
-			// Speak welcome message after a short delay to allow interaction
+			// Speak welcome message for the ai to communicate first 
 			setTimeout(() => {
 				if (autoSpeak) {
 					speakText(welcomeText);

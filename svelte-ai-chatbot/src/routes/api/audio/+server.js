@@ -64,7 +64,7 @@ export async function POST({ request }) {
 			console.error("Failed to parse JSON response from Gemini", text);
 			data = { response: text, transcript: "" };
 		}
-
+		//return response
 		return json({
 			response: data.response || text,
 			transcript: data.transcript || '',
