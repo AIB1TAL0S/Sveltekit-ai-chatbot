@@ -86,7 +86,7 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
 		<div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200">
 			<div class="p-6">
-				<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-4">Create New AI Agent</h3>
+				<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-4">Create New AI Persona</h3>
 				
 				<div class="space-y-4">
 					<div>
