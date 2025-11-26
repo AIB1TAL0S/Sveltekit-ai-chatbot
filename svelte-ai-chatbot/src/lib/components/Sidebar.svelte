@@ -56,7 +56,7 @@
 					? 'bg-blue-100 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800 shadow-sm' 
 					: 'hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'}"
 				onclick={() => onSelectAgent(agent)}
-				aria-label="Select agent {agent.name}"
+				aria-label="Select persona {agent.name}"
 			>
 				<div class="w-8 h-8 rounded-full bg-gradient-to-br {selectedAgent.id === agent.id ? 'from-blue-500 to-purple-600' : 'from-slate-400 to-slate-500'} flex items-center justify-center text-white font-bold text-xs shadow-sm">
 					{agent.name.substring(0, 2).toUpperCase()}
@@ -90,7 +90,7 @@
 				
 				<div class="space-y-4">
 					<div>
-						<label for="agent-name" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Agent Name</label>
+						<label for="agent-name" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Persona Name</label>
 						<input
 							id="agent-name"
 							type="text"
