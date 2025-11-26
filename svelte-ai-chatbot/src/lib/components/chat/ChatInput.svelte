@@ -89,7 +89,7 @@
 						</button>
 					{/if}
 
-					<!-- Microphone Button (Conversational STT) -->
+
 					<button
 						onclick={() => {
 							if (isListening) {
@@ -97,9 +97,9 @@
 							} else if (isRecording) {
 								stopRecording();
 							} else {
-								// Prefer Browser STT (Conversational)
+
 								startListening();
-								// Fallback to Audio Recording if STT not available is handled in startListening
+
 							}
 						}}
 						disabled={isLoading}

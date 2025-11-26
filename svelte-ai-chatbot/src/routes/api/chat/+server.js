@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-/** @type {import('./$types').RequestHandler} */
+
 export async function POST({ request }) {
 	try {
 		const { message, conversationHistory, systemPrompt } = await request.json();
@@ -25,15 +25,11 @@ export async function POST({ request }) {
 			systemInstruction: systemPrompt || defaultSystemInstruction
 		});
 
-		// Prepare history for Gemini
-		// The client sends history including the current message.
-		// We need to exclude the last message from history because we send it via chat.sendMessage()
+
 		let historyForGemini = [];
 
 		if (conversationHistory && Array.isArray(conversationHistory)) {
-			// Filter out the last message if it matches the current input to avoid duplication
-			// or just take all except the last one if we assume the client always appends it.
-			// Let's be safe: if the last message is from user and matches 'message', remove it.
+
 			const historyToProcess = [...conversationHistory];
 			const lastMsg = historyToProcess[historyToProcess.length - 1];
 
@@ -57,7 +53,7 @@ export async function POST({ request }) {
 
 		return json({
 			response: text,
-			sources: [], // Gemini API doesn't return sources by default
+			sources: [],
 			metadata: {}
 		});
 

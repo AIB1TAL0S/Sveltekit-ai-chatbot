@@ -14,7 +14,7 @@
 </script>
 
 <div class="flex-1 overflow-y-auto px-4 py-6 relative">
-	<!-- Centered Large Vibrant Jarvis Sphere -->
+
 	<div class="centered-jarvis-sphere">
 		<OrganicSphere {isLoading} {isSpeaking} size={400} vibrant={true} />
 	</div>
@@ -178,14 +178,14 @@
 		}
 	}
 
-	/* AI Avatar Container */
+
 	.ai-avatar-container {
 		width: 48px;
 		height: 48px;
 		position: relative;
 	}
 
-	/* Centered Jarvis Sphere */
+
 	.centered-jarvis-sphere {
 		position: fixed;
 		top: 50%;
@@ -201,7 +201,7 @@
 		opacity: 0.25;
 	}
 
-	/* Make messages area have relative positioning for z-index */
+
 	.flex-1.overflow-y-auto {
 		position: relative;
 	}

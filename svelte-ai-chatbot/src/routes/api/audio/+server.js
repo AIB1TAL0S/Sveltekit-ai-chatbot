@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-/** @type {import('./$types').RequestHandler} */
+
 export async function POST({ request }) {
 	try {
 		const formData = await request.formData();
@@ -20,8 +20,8 @@ export async function POST({ request }) {
 			return json({ error: 'Server configuration error: API key missing' }, { status: 500 });
 		}
 
-		// Validate file size (max 10MB)
-		const maxSize = 10 * 1024 * 1024; // 10MB
+
+		const maxSize = 10 * 1024 * 1024;
 		if (audioBlob.size > maxSize) {
 			return json({ error: 'Audio size exceeds 10MB limit' }, { status: 400 });
 		}
@@ -38,7 +38,7 @@ export async function POST({ request }) {
 		});
 
 		const parts = [];
-		// Prompt Gemini to transcribe and respond
+
 		const prompt = message
 			? `${message}\n\nPlease transcribe the audio and then respond to it. Return the response in JSON format with keys: "transcript" and "response".`
 			: `Please transcribe the audio and then respond to it. Return the response in JSON format with keys: "transcript" and "response".`;
