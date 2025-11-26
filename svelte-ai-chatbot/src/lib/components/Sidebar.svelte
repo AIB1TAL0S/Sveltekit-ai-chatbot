@@ -124,7 +124,7 @@
 						disabled={!newAgentName.trim() || !newAgentPrompt.trim()}
 						class="px-6 py-2 text-sm font-medium bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
 					>
-						Create Agent
+						Create Persona
 					</button>
 				</div>
 			</div>
