@@ -10,15 +10,15 @@
 	let isLoading = $state(false);
 	let isListening = $state(false);
 	let isSpeaking = $state(false);
-	let autoSpeak = $state(true); // Auto-speak enabled by default
-	let conversationMode = $state(false); // Conversation mode disabled by default
+	let autoSpeak = $state(true); //  default true
+	let conversationMode = $state(true); // default true 
 	let conversationHistory = $state([]);
 
 	let isRecording = $state(false);
 	let recordingTime = $state(0);
 	let isSidebarOpen = $state(false);
 
-	// Agents State
+	// Agents persona
 
 	let agents = $state([
 		{
