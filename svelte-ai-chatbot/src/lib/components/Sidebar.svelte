@@ -105,7 +105,7 @@
 						<textarea
 							id="agent-prompt"
 							bind:value={newAgentPrompt}
-							placeholder="Describe how the agent should behave (e.g., You are a pirate captain who loves treasure...)"
+							placeholder="Describe how the ai persona should behave (e.g., You are a pirate captain who loves treasure...)"
 							rows="4"
 							class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all"
 						></textarea>
